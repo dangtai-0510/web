@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ReSize Studio - Trợ Lý Thời Trang AI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+    
+    <style>
+        body { font-family: 'Nunito', sans-serif; }
+        .custom-scroll::-webkit-scrollbar, .chat-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-thumb, .chat-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+
+        .glass-header { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+        .soft-card { background: white; border-radius: 24px; box-shadow: 0 10px 40px -10px rgba(0,0,0,0.05), 0 0 15px rgba(0,0,0,0.02); border: 1px solid rgba(255,255,255,0.8); }
+
+        .modern-input { width: 100%; background-color: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 10px 16px; font-size: 14px; font-weight: 600; color: #334155; outline: none; transition: all 0.2s ease; }
+        .modern-input:focus { border-color: #3b82f6; background-color: white; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1); }
+
+        .btn-primary { background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%); color: white; padding: 10px 20px; border-radius: 12px; font-weight: 800; font-size: 14px; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 4px 15px rgba(13, 148, 136, 0.3); }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(13, 148, 136, 0.4); }
+        .btn-danger { background: #ef4444; color: white; padding: 10px 20px; border-radius: 12px; font-weight: 800; font-size: 14px; }
+        .btn-warning { background: #f59e0b; color: white; padding: 10px 20px; border-radius: 12px; font-weight: 800; font-size: 14px; }
+
+        .scan-container { position: relative; width: 100%; height: 350px; background-color: #0f172a; border-radius: 16px; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 4px solid #f1f5f9; }
+        #input_video { display: none; }
+        #output_canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; transform: scaleX(-1); }
+
+        .typing-indicator span { display: inline-block; width: 6px; height: 6px; background-color: #94a3b8; border-radius: 50%; margin: 0 2px; animation: bounce 1.4s infinite ease-in-out both; }
+        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+
+        .chat-user { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border: none; }
+        .quick-chip { background: white; border: 1px solid #e2e8f0; color: #475569; padding: 6px 12px; border-radius: 99px; font-size: 11px; font-weight: 700; white-space: nowrap; cursor: pointer; transition: all 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .quick-chip:hover { border-color: #0d9488; color: #0d9488; background: #f0fdfa; }
+
+        @keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(20, 184, 166, 0); } 100% { box-shadow: 0 0 0 0 rgba(20, 184, 166, 0); } }
+        .highlight-scan { color: #0d9488; animation: pulse-ring 2s infinite; border-radius: 8px; padding: 2px 8px; background: #ccfbf1; }
+        .processing-fx { animation: pulse-green 1.5s infinite; }
+        @keyframes pulse-green { 0%, 100% { opacity: 1; border-color: #4ade80; } 50% { opacity: 0.5; border-color: #86efac; } }
+        .animate-fade-in { animation: fadeIn 0.5s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-teal-50 via-white to-blue-50 h-screen flex flex-col overflow-hidden text-gray-800">
+
+    <header class="glass-header z-20 relative px-6 py-3 border-b border-white/50 shadow-sm">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-teal-400 to-teal-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-teal-200">
+                    <i class="fa-solid fa-scissors text-xl"></i>
+                </div>
+                <a href="#" class="text-2xl font-extrabold text-teal-800 tracking-tight">ReSize.</a>
+            </div>
+            <div class="flex items-center gap-3 bg-white/80 px-4 py-1.5 rounded-full border border-gray-100 shadow-sm">
+                <div class="text-sm font-semibold text-gray-600">Chào, <span id="header-user-name" class="text-teal-600">Khách hàng</span></div>
+                <div id="header-avatar" class="w-8 h-8 bg-teal-100 rounded-full flex items-center justify-center text-teal-700 font-bold uppercase shadow-inner">K</div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 container mx-auto px-4 py-6 flex flex-col md:flex-row gap-6 h-full overflow-hidden">
+        
+        <div class="w-full md:w-1/3 soft-card flex flex-col h-[calc(100vh-100px)]">
+            <div class="p-4 border-b border-gray-100/50 bg-white/50 flex items-center justify-between rounded-t-2xl">
+                <div class="flex items-center gap-3">
+                    <div class="relative">
+                        <div class="w-12 h-12 bg-gradient-to-tr from-teal-500 to-blue-500 text-white rounded-full flex items-center justify-center text-xl shadow-md"><i class="fa-solid fa-robot"></i></div>
+                        <span class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-400 border-2 border-white rounded-full"></span>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-gray-800 text-lg">AI Stylist</h3>
+                        <p class="text-xs text-teal-600 font-semibold">Trợ lý cá nhân</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="chat-box" class="flex-1 p-5 overflow-y-auto chat-scroll bg-gray-50/30 flex flex-col gap-5">
+                <div class="flex gap-3 max-w-[90%]">
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-teal-500 to-blue-500 text-white flex-shrink-0 flex items-center justify-center text-xs shadow-md"><i class="fa-solid fa-robot"></i></div>
+                    <div class="bg-white p-3.5 rounded-2xl rounded-tl-sm text-sm text-gray-700 shadow-sm border border-gray-100 leading-relaxed">
+                        Chào bạn! Mình là <b>ReSize AI</b>. Hãy <b>nhập Tên</b> ở bảng bên phải để mình kết nối LocalStorage, hoặc <b>Bật Camera</b> để bắt đầu quét số đo nhé! ✨
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-4 bg-white/80 border-t border-gray-100 rounded-b-2xl">
+                <div class="flex gap-2 items-center bg-gray-100 rounded-full p-1 border border-gray-200 focus-within:border-teal-400 focus-within:bg-white transition-all shadow-inner">
+                    <input type="text" id="chat-input" class="flex-1 bg-transparent px-4 py-2 text-sm outline-none" placeholder="Hỏi AI cách phối đồ...">
+                    <button id="send-btn" class="w-10 h-10 bg-teal-500 text-white rounded-full flex items-center justify-center hover:bg-teal-600 transition shadow-md hover:scale-105"><i class="fa-solid fa-paper-plane"></i></button>
+                </div>
+                <div class="flex gap-2 mt-3 overflow-x-auto hide-scrollbar">
+                    <span class="quick-chip" onclick="document.getElementById('chat-input').value='Upcycle là gì?'; document.getElementById('send-btn').click();">Upcycle là gì?</span>
+                    <span class="quick-chip" onclick="document.getElementById('chat-input').value='Dáng tôi hợp mặc gì?'; document.getElementById('send-btn').click();">Dáng tôi hợp mặc gì?</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="w-full md:w-2/3 flex flex-col gap-6 h-[calc(100vh-100px)] overflow-y-auto pr-2 pb-10 custom-scroll">
+            
+            <div class="soft-card p-5">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-extrabold text-gray-800"><i class="fa-solid fa-camera-viewfinder text-teal-500 mr-2"></i>Hồ sơ & AI Scanner</h2>
+                    <span id="scan-status" class="px-3 py-1 bg-teal-50 text-teal-700 text-xs font-bold rounded-full border border-teal-100">Đang chờ</span>
+                </div>
+
+                <div class="flex flex-col md:flex-row gap-3 mb-4">
+                    <div class="flex-1 relative">
+                        <i class="fa-solid fa-user absolute left-3.5 top-3 text-gray-400"></i>
+                        <input type="text" id="manual-name" placeholder="Tên của bạn (bắt buộc)" class="modern-input pl-10 border-blue-200">
+                    </div>
+                    <input type="number" id="manual-shoulder-input" placeholder="Vai (cm)" class="modern-input w-full md:w-24 text-center">
+                    <input type="number" id="manual-waist-input" placeholder="Eo (cm)" class="modern-input w-full md:w-24 text-center">
+                    <button id="apply-profile-btn" class="bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-5 py-2 rounded-xl text-sm font-bold shadow-lg shadow-blue-200 hover:scale-105 transition"><i class="fa-solid fa-floppy-disk mr-1"></i> Lưu H.sơ</button>
+                </div>
+
+                <div id="history-container" class="hidden mb-5 bg-blue-50/50 border border-blue-100 rounded-xl p-3">
+                    <p class="text-xs text-blue-800 mb-2 font-bold"><i class="fa-solid fa-clock-rotate-left mr-1"></i> Lịch sử đo của <span id="history-name-label"></span>:</p>
+                    <div class="max-h-24 overflow-y-auto custom-scroll">
+                        <table class="w-full text-xs text-left text-gray-600">
+                            <thead class="bg-blue-100/50 uppercase text-blue-800">
+                                <tr><th class="px-2 py-1 rounded-l-md">Thời gian</th><th class="px-2 py-1">Vai</th><th class="px-2 py-1 rounded-r-md">Eo</th></tr>
+                            </thead>
+                            <tbody id="history-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="scan-container mb-4 shadow-inner">
+                    <i id="camera-placeholder" class="fa-solid fa-expand text-6xl text-gray-600/50"></i>
+                    <div id="countdown-overlay" class="hidden absolute inset-0 bg-black/70 flex items-center justify-center z-10 backdrop-blur-sm">
+                        <span id="countdown-text" class="text-8xl font-black text-white animate-pulse">3</span>
+                    </div>
+                    <video id="input_video"></video>
+                    <canvas id="output_canvas" width="640" height="350"></canvas>
+                </div>
+
+                <div class="flex flex-wrap justify-between items-center gap-4 bg-gray-50/80 p-4 rounded-2xl border border-gray-200">
+                    <div class="flex gap-2">
+                        <button id="start-scan-btn" class="btn-primary"><i class="fa-solid fa-video mr-2"></i> Bật Camera</button>
+                        <button id="stop-scan-btn" class="btn-danger hidden"><i class="fa-solid fa-stop mr-2"></i> Dừng</button>
+                        <button id="save-measure-btn" class="btn-warning hidden"><i class="fa-solid fa-bolt mr-2"></i> Lưu Vai & Tiếp tục</button>
+                    </div>
+                    
+                    <div class="flex gap-6 text-right">
+                        <div>
+                            <p id="label-vai" class="text-xs text-gray-500 font-bold uppercase tracking-widest">Vai</p>
+                            <p class="text-2xl font-black text-teal-600"><span id="shoulder-val">0</span><span class="text-sm font-medium">cm</span></p>
+                        </div>
+                        <div class="border-l-2 border-gray-200/60 pl-6">
+                            <p id="label-eo" class="text-xs text-gray-500 font-bold uppercase tracking-widest">Eo</p>
+                            <p class="text-2xl font-black text-indigo-500"><span id="waist-val">0</span><span class="text-sm font-medium">cm</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="soft-card p-5 flex flex-col">
+                    <h2 class="text-lg font-extrabold text-gray-800 mb-4"><i class="fa-solid fa-star text-amber-400 mr-2"></i>Định Hình Phong Cách</h2>
+                    <div id="suggestion-empty" class="flex-1 flex flex-col items-center justify-center p-6 text-center border-2 border-dashed border-gray-300 rounded-2xl bg-gray-50/50">
+                        <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm mb-3 text-gray-300"><i class="fa-solid fa-person-half-dress text-2xl"></i></div>
+                        <p class="text-sm text-gray-500 font-medium">Đo kích thước để AI chẩn đoán dáng người</p>
+                    </div>
+
+                    <div id="suggestion-result" class="hidden flex-1 flex flex-col">
+                        <div class="bg-gradient-to-r from-amber-50 to-orange-50 p-4 rounded-2xl border border-amber-100 mb-4">
+                            <p class="text-sm text-amber-800 font-medium">Dáng của bạn: <strong id="body-shape-name" class="font-extrabold text-orange-600 text-lg uppercase">...</strong></p>
+                            <p id="body-shape-desc" class="text-xs text-amber-700/80 mt-1 font-medium">...</p>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3" id="clothing-items"></div>
+                    </div>
+                </div>
+
+                <div class="soft-card p-5 flex flex-col">
+                    <h2 class="text-lg font-extrabold text-gray-800 mb-4"><i class="fa-solid fa-leaf text-green-500 mr-2"></i>Trạm Upcycle</h2>
+                    <div class="flex-1 bg-gradient-to-b from-gray-50 to-white rounded-2xl border border-gray-200 p-4 flex flex-col justify-between">
+                        
+                        <div class="mb-4">
+                            <select id="upcycle-target" class="w-full bg-white border border-gray-300 text-gray-700 text-xs rounded-xl focus:ring-green-500 focus:border-green-500 block p-2.5 outline-none font-semibold">
+                                <option value="crop-top">Biến áo thành: Áo Crop-top</option>
+                                <option value="tote-bag">Biến áo thành: Túi Tote vải</option>
+                                <option value="skirt">Biến áo thành: Chân váy ngắn</option>
+                            </select>
+                        </div>
+
+                        <div class="flex justify-center items-center gap-3 mb-4">
+                            <div class="relative group cursor-pointer" id="btn-upload">
+                                <input type="file" id="image-upload" accept="image/*" class="hidden">
+                                <div id="old-item" class="w-24 h-28 bg-white border-2 border-dashed border-gray-300 rounded-xl flex items-center justify-center text-gray-400 flex-col overflow-hidden group-hover:border-green-400 group-hover:bg-green-50 transition">
+                                    <i class="fa-solid fa-cloud-arrow-up text-2xl mb-1"></i><span class="text-[10px] font-bold mt-1">Tải áo cũ</span>
+                                </div>
+                                <button id="remove-img-btn" class="hidden absolute -top-2 -right-2 bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs shadow-md hover:scale-110 transition z-20"><i class="fa-solid fa-xmark"></i></button>
+                            </div>
+                            
+                            <div class="flex flex-col items-center">
+                                <i class="fa-solid fa-arrow-right text-gray-300 text-xl"></i>
+                                <span class="text-[8px] font-bold text-gray-400 uppercase mt-1">AI Gen</span>
+                            </div>
+                            
+                            <div id="new-item" class="w-24 h-28 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-center text-gray-300 flex-col shadow-inner">
+                                <i class="fa-solid fa-image text-2xl mb-1 opacity-50"></i>
+                            </div>
+                        </div>
+                        <button id="btn-do-upcycle" class="w-full bg-gray-200 text-gray-500 py-2.5 rounded-xl text-sm font-extrabold transition" disabled>Bắt đầu AI Upcycle</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="partner-section" class="soft-card p-5 hidden animate-fade-in mt-2 border-l-4 border-blue-500">
+                <div class="flex justify-between items-center mb-4">
+                    <div>
+                        <h2 class="text-lg font-extrabold text-gray-800"><i class="fa-solid fa-shop text-blue-500 mr-2"></i>Hệ sinh thái Thợ may</h2>
+                        <p class="text-xs text-gray-500 mt-1">Nền tảng thu phí hoa hồng minh bạch 15%</p>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="border border-gray-200 rounded-xl p-4 flex items-center justify-between bg-gray-50">
+                        <div class="flex items-center gap-3">
+                            <img src="https://ui-avatars.com/api/?name=Tiệm+May+Vui+Vẻ&background=14b8a6&color=fff" class="w-10 h-10 rounded-xl shadow-sm">
+                            <div>
+                                <h4 class="font-bold text-gray-800 text-sm">Tiệm May Vui Vẻ</h4>
+                                <p class="text-[11px] text-yellow-500 font-bold"><i class="fa-solid fa-star"></i> 4.8 (89 nhận xét)</p>
+                            </div>
+                        </div>
+                        <button onclick="openQuote('Tiệm May Vui Vẻ', 180000)" class="bg-gray-900 text-white px-4 py-1.5 rounded-lg text-xs font-bold hover:bg-gray-700 transition">Đặt may</button>
+                    </div>
+
+                    <div class="border border-blue-200 rounded-xl p-4 flex items-center justify-between bg-blue-50/30">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold shadow-sm">RS</div>
+                            <div>
+                                <h4 class="font-bold text-blue-900 text-sm">ReSize Official Shop <i class="fa-solid fa-circle-check text-blue-500"></i></h4>
+                                <p class="text-[11px] text-blue-600 font-bold">Xưởng Upcycle chuyên dụng</p>
+                            </div>
+                        </div>
+                        <button onclick="openQuote('ReSize Official Shop', 250000)" class="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-700 transition shadow-md shadow-blue-200">Đặt may</button>
+                    </div>
+                </div>
+
+                <div id="quote-modal" class="hidden mt-5 bg-gray-900 rounded-2xl p-5 relative overflow-hidden text-white shadow-xl">
+                    <div class="absolute top-0 right-0 bg-gradient-to-r from-orange-400 to-red-500 text-white text-[10px] px-3 py-1 font-black uppercase rounded-bl-xl tracking-wider">Hóa Đơn</div>
+                    <h3 class="font-extrabold text-lg mb-1"><i class="fa-solid fa-receipt text-gray-400 mr-2"></i><span id="quote-tailor-name"></span></h3>
+                    <p class="text-xs text-gray-400 mb-5 border-b border-gray-700 pb-3">Chi phí áp dụng cho mẫu Upcycle và số đo Vai/Eo hiện tại.</p>
+                    
+                    <div class="space-y-3 text-sm font-medium mb-4">
+                        <div class="flex justify-between">
+                            <span class="text-gray-300">Công cắt may</span>
+                            <strong id="quote-base-price">0đ</strong>
+                        </div>
+                        <div class="flex justify-between items-center bg-gray-800 p-2 rounded-lg">
+                            <span class="text-gray-400">Phí Nền tảng (15%)</span>
+                            <span id="quote-platform-fee" class="text-orange-400">0đ</span>
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-between items-end border-t border-gray-700 pt-4 mb-5">
+                        <span class="text-gray-400 text-sm">Tổng cộng</span>
+                        <strong class="text-2xl text-green-400 font-black" id="quote-total-price">0đ</strong>
+                    </div>
+
+                    <div class="flex gap-3">
+                        <button onclick="closeQuote()" class="flex-1 bg-gray-800 text-gray-300 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-700 transition">Hủy bỏ</button>
+                        <button onclick="confirmOrder()" class="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 text-white py-2.5 rounded-xl text-sm font-bold hover:scale-[1.02] transition shadow-lg shadow-green-500/30">Xác nhận thanh toán</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        // ==========================================
+        // 1. STATE & GLOBAL VARIABLES
+        // ==========================================
+        let userName = "Khách hàng";
+        let currentShape = "";
+        let isImageUploaded = false;
+        let scanState = 'idle'; // idle, shoulder, wait_waist, waist
+        let activeCam = null;
+
+        // ==========================================
+        // 2. CHATBOT ENGINE
+        // ==========================================
+        const chatBox = document.getElementById('chat-box');
+        const chatInput = document.getElementById('chat-input');
+
+        function appendMessage(sender, text) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `flex gap-3 max-w-[90%] ${sender === 'user' ? 'self-end flex-row-reverse mt-3' : 'mt-3'}`;
+            
+            const avatar = sender === 'user' 
+                ? `<div class="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-black flex items-center justify-center text-xs border border-blue-200 uppercase shadow-sm">${userName.charAt(0)}</div>`
+                : `<div class="w-8 h-8 rounded-full bg-gradient-to-tr from-teal-500 to-blue-500 text-white flex items-center justify-center text-xs shadow-md"><i class="fa-solid fa-robot"></i></div>`;
+            
+            const bubbleClass = sender === 'user'
+                ? 'chat-user rounded-2xl rounded-tr-sm p-3 text-sm shadow-md'
+                : 'bg-white p-3 rounded-2xl rounded-tl-sm text-sm text-gray-700 shadow-sm border border-gray-100 leading-relaxed';
+
+            msgDiv.innerHTML = `${avatar}<div class="${bubbleClass}">${text}</div>`;
+            chatBox.appendChild(msgDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function processBotReply(userInput) {
+            const text = userInput.toLowerCase();
+            let reply = "Xin lỗi, mình chưa hiểu ý bạn. Bạn có thể hỏi về 'Upcycle', 'Phối đồ' hoặc 'Đo size' nhé!";
+
+            if (text.includes("chào") || text.includes("hello") || text.includes("hi")) {
+                reply = `Chào ${userName}! Hôm nay bạn muốn tìm phong cách nào?`;
+            } else if (text.includes("upcycle") || text.includes("tái chế")) {
+                reply = "Upcycle là biến đồ cũ thành đồ mới hợp thời trang. Hãy <b>Tải ảnh</b> chiếc áo cũ ở trạm Upcycle bên dưới, mình sẽ làm phép thuật cho xem!";
+            } else if (text.includes("dáng") || text.includes("mặc gì") || text.includes("phối")) {
+                if (currentShape !== "") {
+                    reply = `Dựa vào số đo, bạn có dáng <b>${currentShape}</b>. Mình khuyên bạn nên mặc các trang phục tôn eo và tránh đồ quá rộng lùng thùng nhé.`;
+                } else {
+                    reply = "Để tư vấn chuẩn nhất, bạn hãy <b>Cập nhật số đo</b> hoặc <b>Bật Camera</b> để mình quét Vai và Eo trước nhé.";
+                }
+            } else if (text.includes("giá") || text.includes("tiền") || text.includes("thợ may")) {
+                reply = "Nền tảng ReSize thu phí 15% trên mỗi hóa đơn cắt may. Bạn cứ Upcycle đồ xong, bảng giá chi tiết của Thợ may sẽ hiện ra minh bạch.";
+            }
+
+            // Hiệu ứng typing
+            const typingId = 'typing-' + Date.now();
+            const typingDiv = document.createElement('div');
+            typingDiv.id = typingId;
+            typingDiv.className = 'flex gap-3 max-w-[90%] mt-3';
+            typingDiv.innerHTML = `<div class="w-8 h-8 rounded-full bg-gradient-to-tr from-teal-500 to-blue-500 text-white flex items-center justify-center text-xs shadow-md"><i class="fa-solid fa-robot"></i></div><div class="bg-white p-3 rounded-2xl rounded-tl-sm border border-gray-100 shadow-sm typing-indicator"><span></span><span></span><span></span></div>`;
+            chatBox.appendChild(typingDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            setTimeout(() => {
+                document.getElementById(typingId).remove();
+                appendMessage('ai', reply);
+            }, 1200);
+        }
+
+        document.getElementById('send-btn').onclick = () => {
+            const txt = chatInput.value.trim();
+            if (!txt) return;
+            appendMessage('user', txt);
+            chatInput.value = '';
+            processBotReply(txt);
+        };
+        chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') document.getElementById('send-btn').click(); });
+
+        // ==========================================
+        // 3. QUẢN LÝ HỒ SƠ & LOCAL STORAGE
+        // ==========================================
+        function saveRecord(name, shoulder, waist) {
+            if(!name) return;
+            let data = JSON.parse(localStorage.getItem('resize_db') || '[]');
+            data.push({
+                name: name.trim().toLowerCase(),
+                realName: name.trim(),
+                time: new Date().toLocaleString('vi-VN'),
+                shoulder: parseFloat(shoulder),
+                waist: parseFloat(waist)
+            });
+            localStorage.setItem('resize_db', JSON.stringify(data));
+        }
+
+        function loadHistory(name) {
+            let data = JSON.parse(localStorage.getItem('resize_db') || '[]');
+            let userHistory = data.filter(x => x.name === name.trim().toLowerCase());
+            const container = document.getElementById('history-container');
+            const tbody = document.getElementById('history-tbody');
+            
+            if(userHistory.length > 0) {
+                container.classList.remove('hidden');
+                document.getElementById('history-name-label').innerText = userHistory[0].realName;
+                tbody.innerHTML = '';
+                [...userHistory].reverse().forEach(item => {
+                    tbody.innerHTML += `<tr class="border-b border-gray-100 hover:bg-gray-50"><td class="px-2 py-1.5">${item.time}</td><td class="px-2 py-1.5 text-teal-600 font-bold">${item.shoulder} cm</td><td class="px-2 py-1.5 text-indigo-600 font-bold">${item.waist} cm</td></tr>`;
+                });
+                return userHistory[userHistory.length - 1]; 
+            } else {
+                container.classList.add('hidden');
+                return null;
+            }
+        }
+
+        document.getElementById('apply-profile-btn').onclick = () => {
+            const nameVal = document.getElementById('manual-name').value.trim();
+            if (!nameVal) return alert("Hãy điền tên để ReSize ghi nhớ dữ liệu của bạn nhé!");
+            
+            userName = nameVal;
+            document.getElementById('header-user-name').innerText = userName;
+            document.getElementById('header-avatar').innerText = userName.charAt(0);
+
+            const sVal = parseFloat(document.getElementById('manual-shoulder-input').value);
+            const wVal = parseFloat(document.getElementById('manual-waist-input').value);
+
+            if (!isNaN(sVal) && !isNaN(wVal)) {
+                document.getElementById('shoulder-val').innerText = sVal;
+                document.getElementById('waist-val').innerText = wVal;
+                saveRecord(userName, sVal, wVal);
+                loadHistory(userName);
+                analyzeShape(sVal, wVal);
+                appendMessage('ai', `Đã lưu hồ sơ mới cho <b>${userName}</b>.`);
+                document.getElementById('manual-shoulder-input').value = '';
+                document.getElementById('manual-waist-input').value = '';
+            } else {
+                const history = loadHistory(userName);
+                if(history) {
+                    document.getElementById('shoulder-val').innerText = history.shoulder;
+                    document.getElementById('waist-val').innerText = history.waist;
+                    analyzeShape(history.shoulder, history.waist);
+                    appendMessage('ai', `Chào mừng <b>${userName}</b> quay lại! Mình đã lấy số đo gần nhất của bạn từ hệ thống rồi nhé.`);
+                } else {
+                    appendMessage('ai', `Chào mừng <b>${userName}</b>! Hãy bật Camera để quét cơ thể hoặc tự điền số đo nhé.`);
+                }
+            }
+        };
+
+        function analyzeShape(sVal, wVal) {
+            if (sVal == 0 || wVal == 0) return;
+            let shapeName = "Dáng Cân Đối", desc = "Tuyệt vời, cơ thể bạn cân đối.", items = "";
+            
+            if (sVal > wVal * 1.3) {
+                shapeName = "Tam Giác Ngược"; desc = "Vai rộng hơn hông.";
+                items = `<div class="bg-white p-3 rounded-xl border border-gray-100 shadow-sm flex flex-col items-center"><i class="fa-solid fa-shirt text-teal-500 text-2xl mb-2"></i><span class="text-xs font-bold text-gray-700">Áo cổ V</span></div><div class="bg-white p-3 rounded-xl border border-gray-100 shadow-sm flex flex-col items-center"><i class="fa-solid fa-person-dress text-teal-500 text-2xl mb-2"></i><span class="text-xs font-bold text-gray-700">Váy xòe</span></div>`;
+            } else if (wVal > sVal * 1.05) {
+                shapeName = "Dáng Quả Lê"; desc = "Hông/eo đầy đặn.";
+                items = `<div class="bg-white p-3 rounded-xl border border-gray-100 shadow-sm flex flex-col items-center"><i class="fa-solid fa-shirt text-purple-500 text-2xl mb-2"></i><span class="text-xs font-bold text-gray-700">Áo bèo nhún</span></div><div class="bg-white p-3 rounded-xl border border-gray-100 shadow-sm flex flex-col items-center"><i class="fa-solid fa-shoe-prints text-purple-500 text-2xl mb-2"></i><span class="text-xs font-bold text-gray-700">Quần suông</span></div>`;
+            } else {
+                items = `<div class="bg-white p-3 rounded-xl border border-gray-100 shadow-sm flex flex-col items-center"><i class="fa-solid fa-shirt text-indigo-500 text-2xl mb-2"></i><span class="text-xs font-bold text-gray-700">Crop-top</span></div><div class="bg-white p-3 rounded-xl border border-gray-100 shadow-sm flex flex-col items-center"><i class="fa-solid fa-person-dress text-indigo-500 text-2xl mb-2"></i><span class="text-xs font-bold text-gray-700">Đầm ôm</span></div>`;
+            }
+
+            document.getElementById('suggestion-empty').classList.add('hidden');
+            document.getElementById('suggestion-result').classList.remove('hidden');
+            document.getElementById('body-shape-name').innerText = shapeName;
+            document.getElementById('body-shape-desc').innerText = desc;
+            document.getElementById('clothing-items').innerHTML = items;
+            
+            currentShape = shapeName;
+            if(isImageUploaded) toggleUpcycleBtn(true);
+        }
+
+        // ==========================================
+        // 4. CAMERA AI LOGIC
+        // ==========================================
+        const videoElement = document.getElementById('input_video');
+        const canvasElement = document.getElementById('output_canvas');
+        const canvasCtx = canvasElement.getContext('2d');
+        const sText = document.getElementById('shoulder-val');
+        const wText = document.getElementById('waist-val');
+
+        const pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
+        pose.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5 });
+
+        pose.onResults((results) => {
+            canvasCtx.save();
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+            
+            if (results.poseLandmarks) {
+                drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, {color: '#14b8a6', lineWidth: 4});
+                drawLandmarks(canvasCtx, results.poseLandmarks, {color: '#f97316', lineWidth: 2, radius: 2});
+                
+                if (scanState === 'shoulder') {
+                    const lS = results.poseLandmarks[11], rS = results.poseLandmarks[12];
+                    if(lS.visibility > 0.5 && rS.visibility > 0.5) {
+                        sText.innerText = (Math.sqrt(Math.pow(lS.x - rS.x, 2) + Math.pow(lS.y - rS.y, 2)) * 145).toFixed(1);
+                    }
+                } else if (scanState === 'waist') {
+                    const lW = results.poseLandmarks[23], rW = results.poseLandmarks[24];
+                    if (lW.visibility > 0.5 && rW.visibility > 0.5) {
+                        wText.innerText = (Math.sqrt(Math.pow(lW.x - rW.x, 2) + Math.pow(lW.y - rW.y, 2)) * 125).toFixed(1);
+                    }
+                }
+            }
+            canvasCtx.restore();
+        });
+
+        function runCountdown(callback) {
+            const overlay = document.getElementById('countdown-overlay');
+            const text = document.getElementById('countdown-text');
+            overlay.classList.remove('hidden');
+            let count = 3;
+            text.innerText = count;
+            
+            const interval = setInterval(() => {
+                count--;
+                if (count > 0) { text.innerText = count; } 
+                else { clearInterval(interval); overlay.classList.add('hidden'); callback(); }
+            }, 1000);
+        }
+
+        document.getElementById('start-scan-btn').onclick = () => {
+            const nameVal = document.getElementById('manual-name').value.trim();
+            if(!nameVal && userName === "Khách hàng") return alert("Hãy điền tên của bạn ở ô phía trên trước khi quét nhé!");
+            if(nameVal && userName === "Khách hàng") document.getElementById('apply-profile-btn').click();
+            
+            document.getElementById('camera-placeholder').style.display = 'none';
+            const camera = new Camera(videoElement, { onFrame: async () => { await pose.send({image: videoElement}); }, width: 640, height: 350 });
+            camera.start(); activeCam = camera;
+            
+            document.getElementById('start-scan-btn').classList.add('hidden');
+            document.getElementById('stop-scan-btn').classList.remove('hidden');
+            
+            runCountdown(() => {
+                scanState = 'shoulder'; sText.innerText = "0"; wText.innerText = "0";
+                document.getElementById('label-vai').classList.add('highlight-scan');
+                document.getElementById('label-eo').classList.remove('highlight-scan');
+                document.getElementById('save-measure-btn').classList.remove('hidden');
+                document.getElementById('save-measure-btn').innerHTML = '<i class="fa-solid fa-save mr-2"></i> Lưu Vai & Quét Eo';
+                document.getElementById('scan-status').innerText = "Bước 1: Quét Vai";
+            });
+        };
+
+        document.getElementById('save-measure-btn').onclick = () => {
+            if (scanState === 'shoulder') {
+                if (parseFloat(sText.innerText) === 0) return alert("Chưa thấy điểm Vai. Bạn hãy đứng lùi ra xa một chút!");
+                scanState = 'wait_waist'; 
+                document.getElementById('label-vai').classList.remove('highlight-scan');
+                document.getElementById('save-measure-btn').classList.add('hidden');
+                
+                runCountdown(() => {
+                    scanState = 'waist';
+                    document.getElementById('label-eo').classList.add('highlight-scan');
+                    document.getElementById('save-measure-btn').classList.remove('hidden');
+                    document.getElementById('save-measure-btn').innerHTML = '<i class="fa-solid fa-check mr-2"></i> Hoàn thành';
+                    document.getElementById('scan-status').innerText = "Bước 2: Quét Eo";
+                });
+            } else if (scanState === 'waist') {
+                if (parseFloat(wText.innerText) === 0) return alert("Chưa thấy điểm Eo. Vui lòng lùi xa thêm!");
+                
+                const fS = parseFloat(sText.innerText);
+                const fW = parseFloat(wText.innerText);
+                
+                document.getElementById('stop-scan-btn').click();
+                sText.innerText = fS.toFixed(1); wText.innerText = fW.toFixed(1);
+                
+                saveRecord(userName, fS, fW);
+                loadHistory(userName);
+                analyzeShape(fS, fW);
+                appendMessage('ai', `Tuyệt vời! Đã quét xong Vai: <b>${fS}cm</b> và Eo: <b>${fW}cm</b>.`);
+            }
+        };
+
+        document.getElementById('stop-scan-btn').onclick = () => {
+            if (activeCam) {
+                scanState = 'idle'; activeCam.stop();
+                if (videoElement.srcObject) videoElement.srcObject.getTracks().forEach(t => t.stop());
+                canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+                
+                document.getElementById('camera-placeholder').style.display = 'block';
+                document.getElementById('start-scan-btn').classList.remove('hidden');
+                document.getElementById('stop-scan-btn').classList.add('hidden');
+                document.getElementById('save-measure-btn').classList.add('hidden');
+                document.getElementById('scan-status').innerText = "Đang chờ";
+                
+                document.getElementById('label-vai').classList.remove('highlight-scan');
+                document.getElementById('label-eo').classList.remove('highlight-scan');
+                sText.innerText = "0"; wText.innerText = "0";
+            }
+        };
+
+        // ==========================================
+        // 5. TÁI THIẾT KẾ (UPCYCLE) & KINH DOANH
+        // ==========================================
+        const fileInput = document.getElementById('image-upload');
+        const oldBox = document.getElementById('btn-upload');
+        const rmBtn = document.getElementById('remove-img-btn');
+        const upcBtn = document.getElementById('btn-do-upcycle');
+        const upcTarget = document.getElementById('upcycle-target');
+
+        oldBox.onclick = (e) => { if(!isImageUploaded && e.target.id !== 'remove-img-btn') fileInput.click(); };
+
+        function toggleUpcycleBtn(enable) {
+            if(enable) {
+                upcBtn.disabled = false;
+                upcBtn.className = "w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white py-2.5 rounded-xl text-sm font-extrabold hover:scale-[1.02] shadow-lg shadow-green-200 transition cursor-pointer";
+            } else {
+                upcBtn.disabled = true;
+                upcBtn.className = "w-full bg-gray-200 text-gray-500 py-2.5 rounded-xl text-sm font-extrabold transition cursor-not-allowed";
+            }
+        }
+
+        fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if(file) {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    document.getElementById('old-item').innerHTML = `<img src="${ev.target.result}" class="w-full h-full object-cover rounded-xl">`;
+                    isImageUploaded = true;
+                    rmBtn.classList.remove('hidden');
+                    if(currentShape !== "") toggleUpcycleBtn(true);
+                };
+                reader.readAsDataURL(file);
+            }
+        };
+
+        rmBtn.onclick = (e) => {
+            e.stopPropagation();
+            document.getElementById('old-item').innerHTML = `<i class="fa-solid fa-cloud-arrow-up text-2xl mb-1"></i><span class="text-[10px] font-bold">Tải áo cũ</span>`;
+            isImageUploaded = false; rmBtn.classList.add('hidden'); toggleUpcycleBtn(false); fileInput.value = "";
+            document.getElementById('partner-section').classList.add('hidden');
+            
+            const newItem = document.getElementById('new-item');
+            newItem.innerHTML = `<i class="fa-solid fa-image text-2xl mb-1 opacity-50"></i>`;
+            newItem.className = "w-24 h-28 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-center text-gray-300 flex-col shadow-inner";
+            upcBtn.innerHTML = "Bắt đầu AI Upcycle";
+        };
+
+        upcBtn.onclick = () => {
+            if(!isImageUploaded) return;
+            const targetType = upcTarget.options[upcTarget.selectedIndex].text;
+            const targetValue = upcTarget.value;
+            const newItem = document.getElementById('new-item');
+
+            upcBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> AI đang gen...`;
+            newItem.classList.add('processing-fx');
+
+            setTimeout(() => {
+                upcBtn.innerHTML = `<i class="fa-solid fa-check mr-2"></i> Hoàn tất`;
+                
+                let icon = "fa-shirt";
+                if(targetValue === "tote-bag") icon = "fa-bag-shopping";
+                if(targetValue === "skirt") icon = "fa-person-dress";
+
+                newItem.classList.remove('processing-fx', 'bg-gray-50');
+                newItem.className = "w-24 h-28 bg-white border-2 border-green-500 rounded-xl flex items-center justify-center text-green-600 flex-col shadow-lg transform scale-110 transition";
+                newItem.innerHTML = `<i class="fa-solid ${icon} text-3xl mb-1"></i><span class="text-[10px] font-bold text-center px-1">${targetType}</span>`;
+                
+                appendMessage('ai', `Hoàn tất! Chiếc áo cũ đã được phác thảo thành <b>${targetType}</b> dựa trên số đo của bạn. Mời bạn chọn Thợ may ở bên dưới để đặt hàng nhé!`);
+                
+                document.getElementById('partner-section').classList.remove('hidden');
+                document.getElementById('partner-section').scrollIntoView({ behavior: 'smooth' });
+            }, 2000);
+        };
+
+        // ==========================================
+        // 6. QUẢN LÝ ĐẶT HÀNG & BÁO GIÁ
+        // ==========================================
+        const formatMoney = (a) => a.toLocaleString('vi-VN') + 'đ';
+        
+        function openQuote(name, price) {
+            const fee = price * 0.15;
+            document.getElementById('quote-tailor-name').innerText = name;
+            document.getElementById('quote-base-price').innerText = formatMoney(price);
+            document.getElementById('quote-platform-fee').innerText = formatMoney(fee);
+            document.getElementById('quote-total-price').innerText = formatMoney(price + fee);
+            document.getElementById('quote-modal').classList.remove('hidden');
+        }
+        function closeQuote() { document.getElementById('quote-modal').classList.add('hidden'); }
+        function confirmOrder() {
+            closeQuote();
+            alert("Giao dịch thành công!");
+            appendMessage('ai', "Đơn hàng Upcycle đã được ghi nhận. ReSize sẽ cập nhật quá trình may sớm nhất cho bạn nhé! 🎉");
+        }
+    </script>
+</body>
+</html>
